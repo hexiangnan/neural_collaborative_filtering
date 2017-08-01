@@ -2,7 +2,7 @@
 Created on Aug 9, 2016
 Logistic loss for learning MLP model.
 
-@author: he8819197
+@author: Xiangnan He (xiangnanhe@gmail.com)
 '''
 import numpy as np
 
@@ -21,6 +21,8 @@ from evaluate import evaluate_model
 from Dataset import Dataset
 from time import time
 import sys
+import argparse
+import multiprocessing as mp
 
 def init_normal(shape, name=None):
     return initializations.normal(shape, scale=0.01, name=name)
@@ -57,15 +59,14 @@ def get_model(num_users, num_items, layers = [20,10], reg_layers=[0,0]):
     
     return model
 
-def get_train_instances(train, num_negatives, weight_negatives, user_weights):
-    user_input, item_input, labels, weights = [],[],[],[]
+def get_train_instances(train, num_negatives):
+    user_input, item_input, labels = [],[],[]
     num_users = train.shape[0]
     for (u, i) in train.keys():
         # positive instance
         user_input.append(u)
         item_input.append(i)
         labels.append(1)
-        weights.append(user_weights[u])
         # negative instances
         for t in xrange(num_negatives):
             j = np.random.randint(num_items)
@@ -74,48 +75,55 @@ def get_train_instances(train, num_negatives, weight_negatives, user_weights):
             user_input.append(u)
             item_input.append(j)
             labels.append(0)
-            weights.append(weight_negatives * user_weights[u])
-    return user_input, item_input, labels, weights
+    return user_input, item_input, labels
+
+#################### Arguments ####################
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run GMF.")
+    parser.add_argument('--path', nargs='?', default='Data/',
+                        help='Input data path.')
+    parser.add_argument('--dataset', nargs='?', default='ml-1m',
+                        help='Choose a dataset.')
+    parser.add_argument('--epochs', type=int, default=100,
+                        help='Number of epochs.')
+    parser.add_argument('--batch_size', type=int, default=256,
+                        help='Batch size.')
+    parser.add_argument('--layers', nargs='?', default='[64,32,16,8]',
+                        help="Size of each layer. Note that the first layer is the concatenation of user and item embeddings. So layers[0]/2 is the embedding size.")
+    parser.add_argument('--reg_layers', nargs='?', default='[0,0,0,0]',
+                        help="Regularization for each layer")
+    parser.add_argument('--num_neg', type=int, default=4,
+                        help='Number of negative instances to pair with a positive instance.')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='Learning rate.')
+    parser.add_argument('--learner', nargs='?', default='adam',
+                        help='Specify an optimizer: adagrad, adam, rmsprop, sgd')
+    parser.add_argument('--verbose', type=int, default=1,
+                        help='Show performance per X iterations')
+    return parser.parse_args()
 
 if __name__ == '__main__':
-    dataset_name = "ml-1m"
-    layers = eval("[16,8]")
-    reg_layers = eval("[0,0]")
-    num_negatives = 1   #number of negatives per positive instance
-    weight_negatives = 1
-    learner = "Adam"
-    learning_rate = 0.001
-    epochs = 100
-    batch_size = 256
-    verbose = 1
-    
-    if (len(sys.argv) > 3):
-        dataset_name = sys.argv[1]
-        layers = eval(sys.argv[2])
-        reg_layers = eval(sys.argv[3])
-        num_negatives = int(sys.argv[4])
-        weight_negatives = float(sys.argv[5])
-        learner = sys.argv[6]
-        learning_rate = float(sys.argv[7])
-        epochs = int(sys.argv[8])
-        batch_size = int(sys.argv[9])
-        verbose = int(sys.argv[10])
+    args = parse_args()
+    path = args.path
+    dataset = args.dataset
+    layers = eval(args.layers)
+    reg_layers = eval(args.reg_layers)
+    num_negatives = args.num_neg
+    learner = args.learner
+    learning_rate = args.lr
+    batch_size = args.batch_size
+    epochs = args.epochs
+    verbose = args.verbose
     
     topK = 10
-    evaluation_threads = 1#mp.cpu_count()
-    print("MLP-logistic(%s) Settings: layers=%s, reg_layers=%s, num_neg=%d, weight_neg=%.2f, learning_rate=%.1e, epochs=%d, batch_size=%d, verbose=%d"
-          %(learner, layers, reg_layers, num_negatives, weight_negatives, learning_rate, epochs, batch_size, verbose))
+    evaluation_threads = 1 #mp.cpu_count()
+    print("MLP arguments: %s " %(args))
     
     # Loading data
     t1 = time()
-    dataset = Dataset("Data/"+dataset_name)
+    dataset = Dataset(args.path + args.dataset)
     train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
     num_users, num_items = train.shape
-    total_weight_per_user = train.nnz / float(num_users)
-    train_csr, user_weights = train.tocsr(), []
-    for u in xrange(num_users):
-        #user_weights.append(total_weight_per_user / float(train_csr.getrow(u).nnz))
-        user_weights.append(1)
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
     
@@ -131,9 +139,10 @@ if __name__ == '__main__':
         model.compile(optimizer=SGD(lr=learning_rate), loss='binary_crossentropy')    
     
     # Check Init performance
+    t1 = time()
     (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
     hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
-    print('Init: HR = %.4f, NDCG = %.4f' %(hr, ndcg))
+    print('Init: HR = %.4f, NDCG = %.4f [%.1f]' %(hr, ndcg, time()-t1))
     
     # Train model
     loss_pre = sys.float_info.max
@@ -141,7 +150,7 @@ if __name__ == '__main__':
     for epoch in xrange(epochs):
         t1 = time()
         # Generate training instances
-        user_input, item_input, labels, weights = get_train_instances(train, num_negatives, weight_negatives, user_weights)
+        user_input, item_input, labels = get_train_instances(train, num_negatives)
     
         # Training        
         hist = model.fit([np.array(user_input), np.array(item_input)], #input

@@ -1,7 +1,7 @@
 '''
 Created on Aug 9, 2016
 
-@author: he8819197
+@author: Xiangnan He (xiangnanhe@gmail.com)
 '''
 import numpy as np
 
@@ -19,7 +19,8 @@ from evaluate import evaluate_model
 from Dataset import Dataset
 from time import time
 import sys
-import GMFlogistic, MLPlogistic
+import GMF, MLP
+import argparse
 
 def init_normal(shape, name=None):
     return initializations.normal(shape, scale=0.01, name=name)
@@ -115,6 +116,8 @@ def get_train_instances(train, num_negatives, weight_negatives, user_weights):
             labels.append(0)
             weights.append(weight_negatives * user_weights[u])
     return user_input, item_input, labels, weights
+
+
 
 if __name__ == '__main__':
     dataset_name = "ml-1m"

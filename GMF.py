@@ -1,7 +1,7 @@
 '''
 Created on Aug 9, 2016
 
-@author: he8819197
+@author: Xiangnan He (xiangnanhe@gmail.com)
 '''
 import numpy as np
 import theano.tensor as T
@@ -19,12 +19,37 @@ from time import time
 import multiprocessing as mp
 import sys
 import math
+import argparse
+
+#################### Arguments ####################
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run GMF.")
+    parser.add_argument('--path', nargs='?', default='Data/',
+                        help='Input data path.')
+    parser.add_argument('--dataset', nargs='?', default='ml-1m',
+                        help='Choose a dataset.')
+    parser.add_argument('--epochs', type=int, default=100,
+                        help='Number of epochs.')
+    parser.add_argument('--batch_size', type=int, default=256,
+                        help='Batch size.')
+    parser.add_argument('--num_factors', type=int, default=8,
+                        help='Embedding size.')
+    parser.add_argument('--regs', nargs='?', default='[0,0]',
+                        help="Regularization for user and item embeddings.")
+    parser.add_argument('--num_neg', type=int, default=4,
+                        help='Number of negative instances to pair with a positive instance.')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='Learning rate.')
+    parser.add_argument('--learner', nargs='?', default='adam',
+                        help='Specify an optimizer: adagrad, adam, rmsprop, sgd')
+    parser.add_argument('--verbose', type=int, default=1,
+                        help='Show performance per X iterations')
+    return parser.parse_args()
 
 def init_normal(shape, name=None):
     return initializations.normal(shape, scale=0.01, name=name)
 
 def get_model(num_users, num_items, latent_dim, regs=[0,0]):
-    assert len(regs) == 2       # regularization for user and item, respectively
     # Input variables
     user_input = Input(shape=(1,), dtype='int32', name = 'user_input')
     item_input = Input(shape=(1,), dtype='int32', name = 'item_input')
@@ -50,15 +75,14 @@ def get_model(num_users, num_items, latent_dim, regs=[0,0]):
 
     return model
 
-def get_train_instances(train, num_negatives, weight_negatives, user_weights):
-    user_input, item_input, labels, weights = [],[],[],[]
+def get_train_instances(train, num_negatives):
+    user_input, item_input, labels = [],[],[]
     num_users = train.shape[0]
     for (u, i) in train.keys():
         # positive instance
         user_input.append(u)
         item_input.append(i)
         labels.append(1)
-        weights.append(user_weights[u])
         # negative instances
         for t in xrange(num_negatives):
             j = np.random.randint(num_items)
@@ -67,47 +91,28 @@ def get_train_instances(train, num_negatives, weight_negatives, user_weights):
             user_input.append(u)
             item_input.append(j)
             labels.append(0)
-            weights.append(weight_negatives * user_weights[u])
-    return user_input, item_input, labels, weights
+    return user_input, item_input, labels
 
 if __name__ == '__main__':
-    dataset_name = "ml-1m"
-    num_factors = 10
-    regs = [0,0]
-    num_negatives = 1
-    weight_negatives = 1
-    learner = "Adam"
-    learning_rate = 0.001
-    epochs = 100
-    batch_size = 256
-    verbose = 1
-    
-    if (len(sys.argv) > 3):
-        dataset_name = sys.argv[1]
-        num_factors = int(sys.argv[2])
-        regs = eval(sys.argv[3])
-        num_negatives = int(sys.argv[4])
-        weight_negatives = float(sys.argv[5])
-        learner = sys.argv[6]
-        learning_rate = float(sys.argv[7])
-        epochs = int(sys.argv[8])
-        batch_size = int(sys.argv[9])   
-        verbose = int(sys.argv[10])
-        
+    args = parse_args()
+    num_factors = args.num_factors
+    regs = eval(args.regs)
+    num_negatives = args.num_neg
+    learner = args.learner
+    learning_rate = args.lr
+    epochs = args.epochs
+    batch_size = args.batch_size
+    verbose = args.verbose
+
     topK = 10
-    evaluation_threads = 1#mp.cpu_count()
-    print("GMF-logistic (%s) Settings: num_factors=%d, batch_size=%d, learning_rate=%.1e, num_neg=%d, weight_neg=%.2f, regs=%s, epochs=%d, verbose=%d"
-          %(learner, num_factors, batch_size, learning_rate, num_negatives, weight_negatives, regs, epochs, verbose))
+    evaluation_threads = 1 #mp.cpu_count()
+    print("GMF arguments: %s" %(args))
     
     # Loading data
     t1 = time()
-    dataset = Dataset("Data/"+dataset_name)
+    dataset = Dataset(args.path + args.dataset)
     train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
     num_users, num_items = train.shape
-    total_weight_per_user = train.nnz / float(num_users)
-    train_csr, user_weights = train.tocsr(), []
-    for u in xrange(num_users):
-        user_weights.append(1)
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
     
@@ -124,12 +129,12 @@ if __name__ == '__main__':
     #print(model.summary())
     
     # Init performance
+    t1 = time()
     (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
     hr, ndcg = np.array(hits).mean(), np.array(ndcgs).mean()
-    mf_embedding_norm = np.linalg.norm(model.get_layer('user_embedding').get_weights())+np.linalg.norm(model.get_layer('item_embedding').get_weights())
-    p_norm = np.linalg.norm(model.get_layer('prediction').get_weights()[0])
-    print('Init: HR = %.4f, NDCG = %.4f\t MF_norm=%.1f, p_norm=%.2f' % 
-          (hr, ndcg, mf_embedding_norm, p_norm))
+    #mf_embedding_norm = np.linalg.norm(model.get_layer('user_embedding').get_weights())+np.linalg.norm(model.get_layer('item_embedding').get_weights())
+    #p_norm = np.linalg.norm(model.get_layer('prediction').get_weights()[0])
+    print('Init: HR = %.4f, NDCG = %.4f\t [%.1f s]' % (hr, ndcg, time()-t1))
     
     # Train model
     loss_pre = sys.float_info.max
@@ -137,7 +142,7 @@ if __name__ == '__main__':
     for epoch in xrange(epochs):
         t1 = time()
         # Generate training instances
-        user_input, item_input, labels, weights = get_train_instances(train, num_negatives, weight_negatives, user_weights)
+        user_input, item_input, labels = get_train_instances(train, num_negatives)
         
         # Training
         hist = model.fit([np.array(user_input), np.array(item_input)], #input
@@ -149,14 +154,12 @@ if __name__ == '__main__':
         if epoch %verbose == 0:
             (hits, ndcgs) = evaluate_model(model, testRatings, testNegatives, topK, evaluation_threads)
             hr, ndcg, loss = np.array(hits).mean(), np.array(ndcgs).mean(), hist.history['loss'][0]
-            mf_embedding_norm = np.linalg.norm(model.get_layer('user_embedding').get_weights())+np.linalg.norm(model.get_layer('item_embedding').get_weights())
-            p_norm = np.linalg.norm(model.get_layer('prediction').get_weights()[0])
-            print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s] MF_norm=%.1f, p_norm=%.2f' 
-                  % (epoch,  t2 - t1, hr, ndcg, loss, time()-t2, mf_embedding_norm, p_norm))
+            print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]' 
+                  % (epoch,  t2-t1, hr, ndcg, loss, time()-t2))
             if hr > best_hr:
                 best_hr = hr
                 if hr > 0.6:
-                    model.save_weights('Pretrain/%s_GMF_%d_neg_%d_hr_%.4f_ndcg_%.4f.h5' %(dataset_name, num_factors, num_negatives, hr, ndcg), overwrite=True)
+                    model.save_weights('Pretrain/%s_GMF_%d_neg_%d_hr_%.4f_ndcg_%.4f.h5' %(args.dataset, num_factors, num_negatives, hr, ndcg), overwrite=True)
             if ndcg > best_ndcg:
                 best_ndcg = ndcg
 

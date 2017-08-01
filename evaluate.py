@@ -33,7 +33,7 @@ def evaluate_model(model, testRatings, testNegatives, K, num_thread):
     _testRatings = testRatings
     _testNegatives = testNegatives
     _K = K
-    
+        
     hits, ndcgs = [],[]
     if(num_thread > 1): # Multi-thread
         pool = multiprocessing.Pool(processes=num_thread)
@@ -64,6 +64,7 @@ def eval_one_rating(idx):
     for i in xrange(len(items)):
         item = items[i]
         map_item_score[item] = predictions[i]
+    items.pop()
     
     # Evaluate top rank list
     ranklist = heapq.nlargest(_K, map_item_score, key=map_item_score.get)

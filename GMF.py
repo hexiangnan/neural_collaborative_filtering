@@ -44,6 +44,8 @@ def parse_args():
                         help='Specify an optimizer: adagrad, adam, rmsprop, sgd')
     parser.add_argument('--verbose', type=int, default=1,
                         help='Show performance per X iterations')
+    parser.add_argument('--out', type=int, default=1,
+                        help='Whether to save the trained model.')
     return parser.parse_args()
 
 def init_normal(shape, name=None):
@@ -103,10 +105,11 @@ if __name__ == '__main__':
     epochs = args.epochs
     batch_size = args.batch_size
     verbose = args.verbose
-
+    
     topK = 10
     evaluation_threads = 1 #mp.cpu_count()
     print("GMF arguments: %s" %(args))
+    model_out_file = 'Pretrain/%s_GMF_%d_%d.h5' %(args.dataset, num_factors, time())
     
     # Loading data
     t1 = time()
@@ -137,8 +140,7 @@ if __name__ == '__main__':
     print('Init: HR = %.4f, NDCG = %.4f\t [%.1f s]' % (hr, ndcg, time()-t1))
     
     # Train model
-    loss_pre = sys.float_info.max
-    best_hr, best_ndcg = 0, 0
+    best_hr, best_ndcg, best_iter = hr, ndcg, -1
     for epoch in xrange(epochs):
         t1 = time()
         # Generate training instances
@@ -157,10 +159,10 @@ if __name__ == '__main__':
             print('Iteration %d [%.1f s]: HR = %.4f, NDCG = %.4f, loss = %.4f [%.1f s]' 
                   % (epoch,  t2-t1, hr, ndcg, loss, time()-t2))
             if hr > best_hr:
-                best_hr = hr
-                if hr > 0.6:
-                    model.save_weights('Pretrain/%s_GMF_%d_neg_%d_hr_%.4f_ndcg_%.4f.h5' %(args.dataset, num_factors, num_negatives, hr, ndcg), overwrite=True)
-            if ndcg > best_ndcg:
-                best_ndcg = ndcg
+                best_hr, best_ndcg, best_iter = hr, ndcg, epoch
+                if args.out > 0:
+                    model.save_weights(model_out_file, overwrite=True)
 
-    print("End. best HR = %.4f, best NDCG = %.4f" %(best_hr, best_ndcg))
+    print("End. Best Iteration %d:  HR = %.4f, NDCG = %.4f. " %(best_iter, best_hr, best_ndcg))
+    if args.out > 0:
+        print("The best GMF model is saved to %s" %(model_out_file))

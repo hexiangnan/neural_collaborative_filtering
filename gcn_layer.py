@@ -11,7 +11,7 @@ import keras.backend as K
 class GraphConvolution(Layer):
     """Basic graph convolution layer as in https://arxiv.org/abs/1609.02907"""
 
-    def __init__(self, output_dim, init='glorot_uniform', activation='linear', weights=None,
+    def __init__(self, output_dim, init='glorot_uniform', activation='relu', weights=None,
                  W_regularizer=None, b_regularizer=None, activity_regularizer=None,
                  W_constraint=None, b_constraint=None,
                  bias=True, input_dim=None, **kwargs):
@@ -34,11 +34,6 @@ class GraphConvolution(Layer):
         if self.input_dim:
             kwargs['input_shape'] = (self.input_dim,)
         super().__init__(**kwargs)
-
-    def compute_output_shape(self, input_shapes):
-        features_shape = input_shapes[0]
-        output_shape = (features_shape[0], self.units)
-        return output_shape  # (batch_size, output_dim)
 
     def build(self, input_shape):
         assert len(input_shape) == 2

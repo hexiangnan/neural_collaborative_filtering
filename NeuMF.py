@@ -89,7 +89,7 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     mlp_user_latent = Flatten()(MLP_Embedding_User(user_input))
     mlp_item_latent = Flatten()(MLP_Embedding_Item(item_input))
     mlp_vector = merge([mlp_user_latent, mlp_item_latent], mode = 'concat')
-    for idx in xrange(1, num_layer):
+    for idx in range(1, num_layer):
         layer = Dense(layers[idx], W_regularizer= l2(reg_layers[idx]), activation='relu', name="layer%d" %idx)
         mlp_vector = layer(mlp_vector)
 
@@ -120,7 +120,7 @@ def load_pretrain_model(model, gmf_model, mlp_model, num_layers):
     model.get_layer('mlp_embedding_item').set_weights(mlp_item_embeddings)
     
     # MLP layers
-    for i in xrange(1, num_layers):
+    for i in range(1, num_layers):
         mlp_layer_weights = mlp_model.get_layer('layer%d' %i).get_weights()
         model.get_layer('layer%d' %i).set_weights(mlp_layer_weights)
         
@@ -141,7 +141,7 @@ def get_train_instances(train, num_negatives):
         item_input.append(i)
         labels.append(1)
         # negative instances
-        for t in xrange(num_negatives):
+        for t in range(num_negatives):
             j = np.random.randint(num_items)
             while train.has_key((u, j)):
                 j = np.random.randint(num_items)

@@ -36,8 +36,10 @@ class GraphConvolution(Layer):
         super().__init__(**kwargs)
 
     def build(self, input_shape):
-        assert len(input_shape) == 2
-        input_dim = input_shape[1]
+        features_shape = input_shape[0]
+        assert len(features_shape) == 2
+        input_dim = features_shape[1]
+
         self.input_spec = [InputSpec(dtype=K.floatx(),
                                      shape=(None, input_dim))]
 
@@ -85,8 +87,9 @@ class GraphConvolution(Layer):
         return self.activation(output)
 
     def get_output_shape_for(self, input_shape):
-        assert input_shape and len(input_shape) == 2
-        return (input_shape[0], self.output_dim)
+        features_shape = input_shape[0]
+        output_shape = (features_shape[0], self.output_dim)
+        return output_shape  # (batch_size, output_dim)        return (input_shape[0], self.output_dim)
 
     def get_config(self):
         config = {'output_dim': self.output_dim,

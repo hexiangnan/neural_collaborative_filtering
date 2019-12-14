@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from keras import activations, constraints, initializations
+from keras import activations, initializers, constraints
 from keras import regularizers
 from keras.engine import Layer
 import keras.backend as K

@@ -91,4 +91,6 @@ test.negative
 - Each line corresponds to the line of test.rating, containing 99 negative samples.  
 - Each line is in the format: (userID,itemID)\t negativeItemID1\t negativeItemID2 ...
 
-Last Update Date: December 23, 2018
+
+
+Last Update Date: October 04, 2020

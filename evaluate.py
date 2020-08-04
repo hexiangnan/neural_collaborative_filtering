@@ -44,7 +44,7 @@ def evaluate_model(model, testRatings, testNegatives, K, num_thread):
         ndcgs = [r[1] for r in res]
         return (hits, ndcgs)
     # Single thread
-    for idx in xrange(len(_testRatings)):
+    for idx in range(len(_testRatings)):
         (hr,ndcg) = eval_one_rating(idx)
         hits.append(hr)
         ndcgs.append(ndcg)      
@@ -61,7 +61,7 @@ def eval_one_rating(idx):
     users = np.full(len(items), u, dtype = 'int32')
     predictions = _model.predict([users, np.array(items)], 
                                  batch_size=100, verbose=0)
-    for i in xrange(len(items)):
+    for i in range(len(items)):
         item = items[i]
         map_item_score[item] = predictions[i]
     items.pop()
@@ -79,7 +79,7 @@ def getHitRatio(ranklist, gtItem):
     return 0
 
 def getNDCG(ranklist, gtItem):
-    for i in xrange(len(ranklist)):
+    for i in range(len(ranklist)):
         item = ranklist[i]
         if item == gtItem:
             return math.log(2) / math.log(i+2)

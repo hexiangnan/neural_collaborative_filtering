@@ -141,7 +141,7 @@ def get_train_instances(train,testRatings, num_negatives):
         item_input.append(i)
         labels.append(1)
         # negative instances
-        for t in range(num_negatives):
+        for t in xrange(num_negatives):
             j = np.random.randint(num_items)
             while ((u, j) in train) and ([u,j] in testRatings):
                 j = np.random.randint(num_items)

@@ -132,6 +132,7 @@ dmypy.json
 .idea/
 
 # ignore project specific outpus and models
+Pretrain/
 
 # ignore project specifc data outputs for train and test
 

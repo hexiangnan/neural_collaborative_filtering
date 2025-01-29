@@ -11,10 +11,22 @@ Three collaborative filtering models: Generalized Matrix Factorization (GMF), Mu
 Author: Dr. Xiangnan He (http://www.comp.nus.edu.sg/~xiangnan/)
 
 ## Environment Settings
-We use Keras with Theano as the backend. 
-- Keras version:  '1.0.7'
-- Theano version: '0.8.0'
+I have updated the code to the latest Python version: Python 3.9.21.
+You can create a Python environment using:
+```
+python3.9 -m venv env_name
+```
+The Updates utilizes Keras and TensorFlow with Theano as the backend:
 
+- keras==3.8.0
+- tensorflow==2.18.0
+- Theano-PyMC==1.1.2
+
+To install the required dependencies, run:
+
+```
+pip install -r requirements.txt
+```
 ## Example to run the codes.
 The instruction of commands has been clearly stated in the codes (see the  parse_args function). 
 
